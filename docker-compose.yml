@@ -1,0 +1,57 @@
+services:
+  database:
+    image: mariadb:latest
+    container_name: mariadb_container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: todo_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: 123
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+
+  backend:
+    build: ./backend
+    container_name: flask_backend
+    restart: always
+    depends_on:
+      - database
+    environment:
+      DB_HOST: database
+      DB_USER: user
+      DB_PASSWORD: 123
+      DB_NAME: todo_db
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/tasks"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: react_frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    environment: 
+      NODE_ENV: production
+      VITE_API_URL: /api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health.txt"]
+      interval: 10s
+      timeout: 5s
+      retries: 3 
+
+volumes:
+  db_data:
